@@ -1,4 +1,12 @@
+"""
+ extract.py
+ Este script hace uso de psaw para conseguir los id de las publicaciones en un intervalo de fechas indicados.
+ Poseteriormente y haciendo uso de praw extrae el post completo, y guarda en la BD el submission y el redditor (autor).
+"""
+
 import datetime as dt
+import traceback
+
 import praw
 import json
 from psaw import PushshiftAPI
@@ -34,8 +42,8 @@ reddit = praw.Reddit(client_id=creds['client_id'],
                      refresh_token=creds['refresh_token'])
 api = PushshiftAPI(reddit)
 
-tf_after = int(dt.datetime(2017, 1, 1).timestamp())
-tf_before = int(dt.datetime(2018, 1, 1).timestamp())
+tf_after = int(dt.datetime(2018, 1, 1).timestamp())
+tf_before = int(dt.datetime(2019, 1, 1).timestamp())
 subreddit = 'cancer'
 
 # use PSAW only to get id of submission in time interval
@@ -53,15 +61,19 @@ for submission_id_psaw in gen:
 
         # use praw from now on
         submission_praw = reddit.submission(id=submission_id)
-        print(f's id: {submission_praw.id}')
 
         author = submission_praw.author
         if author != None and hasattr(author, 'id'):
-            print(f'a id: {author}')
+            print(f'author id: {author}')
+            print(f'submission id: {submission_praw.id}\n \tselftext: {submission_praw.selftext}')
+            #print(str(saveRedditor(reddit.redditor(author))))
             saveRedditor(reddit.redditor(author))
+            #print('type(submission_praw): ' + str(type(submission_praw)))
+            #print('type(reddit.submission(submission_praw)): ' + str(type(reddit.submission(submission_praw))))
             saveSubmission(reddit.submission(submission_praw))
 
         db.session.commit()
 
     except Exception as e:
-        print('Error' + str(e))
+        print('Error ' + str(e))
+        print(traceback.format_exc())
