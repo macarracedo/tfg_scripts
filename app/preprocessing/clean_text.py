@@ -2,6 +2,7 @@ import nltk
 import numpy as np
 import re
 from nltk.corpus import stopwords
+from nltk.stem import PorterStemmer, WordNetLemmatizer
 from cleantext import clean
 
 nltk.download('stopwords')
@@ -42,6 +43,9 @@ def preprocessing_pipeline(texts, cleantext=True, lemmatization=True, stemming=T
 
     remove_stopwords = np.vectorize(lambda text: ' '.join([word for word in text.split() if word not in stop_words]))
 
+    word_lemmatize = np.vectorize(lambda text: ' '.join([wl.lemmatize(word) for word in text.split()]))
+    word_stemming = np.vectorize(lambda text: ' '.join([ps.stem(word) for word in text.split()]))
+    
     if cleantext:
         texts = remove_line_breaks(texts)
         texts = remove_puncts(texts)
@@ -52,12 +56,21 @@ def preprocessing_pipeline(texts, cleantext=True, lemmatization=True, stemming=T
         texts = remove_stopwords(texts)
 
     if lemmatization:
-        ###
-        print("We need lemmatization here")
+        wl = WordNetLemmatizer()
+        texts = word_lemmatize(texts)
 
     if stemming:
-        ###
-        print("We need stemming here")
+        ps = PorterStemmer()
+        texts = word_stemming(texts)
 
+    """
+    if args.lemmatization:
+        lm = WordNetLemmatizer()
+        prep_df['result'] = prep_df['result'].apply(lm.lemmatize)
+
+    elif args.stemming:
+        ps = PorterStemmer()
+        prep_df['result'] = prep_df['result'].apply(ps.stem)
+    """
 
     return texts.tolist()
