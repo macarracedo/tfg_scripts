@@ -11,6 +11,8 @@ import pickle
 from pathlib import Path
 from sklearn.feature_extraction.text import TfidfVectorizer
 from preprocessing import preprocessing_pipeline
+import numpy as np
+from sklearn.feature_selection import chi2
 
 path = Path.cwd()
 
@@ -22,23 +24,12 @@ parser.add_argument("-min_gram", "--min_gram", type=str, help="Minimum grammar i
 parser.add_argument("-max_gram", "--max_gram", type=str, help="Maximum grammar in tfidf")
 
 parser.add_argument('--output-filename', type=str, help='Name of the output file')
-parser.add_argument('--extra_spaces', nargs='?', metavar='', const=False, type=bool, default=True,
-                    help='Cleantext removes extra spaces')
-parser.add_argument('--lowercase', nargs='?', const=False, type=bool, default=True, help='Cleantext sets lowercase')
-parser.add_argument('--numbers', nargs='?', const=False, type=bool, default=True, help='Cleantext removes numbers')
-parser.add_argument('--punct', nargs='?', const=False, type=bool, default=True, help='Cleantext removes punct')
-parser.add_argument('--stopwords', nargs='?', const=False, type=bool, default=True, help='Cleantext removes stopwords')
-
-group_args = parser.add_mutually_exclusive_group()
-group_args.add_argument('-l', '--lemmatization', nargs='?', const=True, type=bool, default=False,
-                        help='Reduce las palablas a su lema')
-group_args.add_argument('-s', '--stemming', nargs='?', const=True, type=bool, default=False,
-                        help='Reduce las palabras a su raiz')
 
 args = parser.parse_args()
 
 if args.option == "preprocessing_texts":
     # python app\tf-idf_vec.py -o preprocessing_texts
+
 
     filename = f"{str(path)}/data/prep_tf-idf.p"
     filename = "prep_text.p" if args.output_filename is None else args.output_filename
@@ -61,14 +52,15 @@ if args.option == "preprocessing_texts":
 if args.option == "tfidf":
     # python app\tf-idf_vec.py -o tfidf -min_gram 1 -max_gram 3
 
-    preprocessing_route = f"{str(path)}/data/texts_preprocessing.pkl"
+    preprocessing_route = f"{str(path)}/data/preprocessed_texts_df.pkl"
     min_gram = int(args.min_gram)
     max_gram = int(args.max_gram)
 
-    flair_texts = pickle.load(open(preprocessing_route, 'rb'))
+    prep_texts = pd.read_pickle(preprocessing_route)
+    # flair_texts es un dataframe con las columnas [flair, combined, result]
 
-    flairs = [flair[0] for flair in flair_texts]
-    texts = [texts[1] for texts in flair_texts]
+    flairs = [flair for flair in prep_texts['flair']]
+    texts = [texts for texts in prep_texts['result']]
 
     tf_idf_vect = TfidfVectorizer(ngram_range = (min_gram, max_gram))
     X_train_tf_idf = tf_idf_vect.fit_transform(texts).toarray()
@@ -82,7 +74,35 @@ if args.option == "tfidf":
         the vector corresponding to the tfidf will be the features 
         that help predict (x_pred) when performing ML methods
         """
-        print(f"{flair}: {X_train_tf_idf[i]}")
+        print(f"'{flair}': {X_train_tf_idf[i]}")
+
+# separator
+prep_texts['id'] = prep_texts['flair'].factorize()[0]
+flair_category = prep_texts[['flair', 'id']].drop_duplicates().sort_values('id')
+print(flair_category)
+
+# Creo un diccionario de etiquetas
+category_labels = dict(flair_category.values)
+print(category_labels)
+
+# Extracting the features by fitting the Vectorizer on Combined Data
+feat = tf_idf_vect.fit_transform(texts).toarray()
+labels = prep_texts['id'] # Series containing all the post labels
+print(feat.shape)
+
+# chisq2 statistical test
+N = 5  # Number of examples to be listed
+for f, i in sorted(category_labels.items()):
+    chi2_feat = chi2(feat, labels == i)
+    indices = np.argsort(chi2_feat[0])
+    feat_names = np.array(tf_idf_vect.get_feature_names_out())[indices]
+    unigrams = [w for w in feat_names if len(w.split(' ')) == 1]
+    bigrams = [w for w in feat_names if len(w.split(' ')) == 2]
+    print("\nFlair '{}':".format(f))
+    print("Most correlated unigrams:\n\t. {}".format('\n\t. '.join(unigrams[-N:])))
+    print("Most correlated bigrams:\n\t. {}".format('\n\t. '.join(bigrams[-N:])))
+
+# separator
 
 """
 tfidf_vectorizer = TfidfVectorizer()

@@ -23,6 +23,8 @@ from sqlalchemy import select
 # DataBase access
 import db
 from models import Submission
+from preprocessing import preprocessing_pipeline
+
 
 p = Path.cwd()
 print(str(p))
@@ -33,13 +35,11 @@ data_path = f"{str(p)}/data"
 parser = argparse.ArgumentParser(description='Takes submissions from database,'
                                              '\n preprocess its body and'
                                              '\n saves them to a pickle file.')
-parser.add_argument('--output-filename', type=str, help='Name of the output file')
-parser.add_argument('--extra_spaces', nargs='?', metavar='', const=False, type=bool, default=True,
-                    help='Cleantext removes extra spaces')
-parser.add_argument('--lowercase', nargs='?', const=False, type=bool, default=True, help='Cleantext sets lowercase')
-parser.add_argument('--numbers', nargs='?', const=False, type=bool, default=True, help='Cleantext removes numbers')
-parser.add_argument('--punct', nargs='?', const=False, type=bool, default=True, help='Cleantext removes punct')
-parser.add_argument('--stopwords', nargs='?', const=False, type=bool, default=True, help='Cleantext removes stopwords')
+parser.add_argument('--output-filename', type=str, help='Name of the output file', default='preprocessed_texts_df')
+parser.add_argument('--clean_text', nargs='?', const=False, type=bool, default=True, help="Don't use clean_text library")
+parser.add_argument('--tokenize', nargs='?', const=True, type=bool, default=False, help='Tokenize result column')
+parser.add_argument('--stopwords', nargs='?', const=False, type=bool, default=True, help="Don't remove stopwords")
+
 
 group_args = parser.add_mutually_exclusive_group()
 group_args.add_argument('-l', '--lemmatization', nargs='?', const=True, type=bool, default=False,
@@ -50,7 +50,7 @@ group_args.add_argument('-s', '--stemming', nargs='?', const=True, type=bool, de
 args = parser.parse_args()
 print(args)
 
-filename = "prep_text" if args.output_filename is None else args.output_filename
+filename = "preprocessed_texts_df" if args.output_filename is None else args.output_filename
 
 # Recojo submissions de la base de datos a un dataframe
 db.Base.metadata.create_all(db.engine)
@@ -65,7 +65,8 @@ features = [
 ]
 prep_df = pd.DataFrame(result, columns=features)
 
-prep_df['combined'] = prep_df['title']  # Creo una columna combinando titulo y cuerpo, para aportar más información
+# Creo una columna combinando titulo y cuerpo, para aportar más información
+prep_df['combined'] = prep_df['title']
 
 for i in range(len(prep_df)):
     if type(prep_df.loc[i]['body']) != float:
@@ -74,38 +75,20 @@ for i in range(len(prep_df)):
 prep_df.drop('title', inplace=True, axis=1)
 prep_df.drop('body', inplace=True, axis=1)
 
-# Aquí realizo el preprocesado parametrizado en funión de los argumentos...
-cln = lambda x: clean(x,
-                      clean_all=False,
-                      extra_spaces=args.extra_spaces,
-                      stemming=False,
-                      stopwords=args.stopwords,
-                      lowercase=args.lowercase,
-                      numbers=args.numbers,
-                      punct=args.punct,
-                      reg='',
-                      reg_replace='',
-                      stp_lang='english')
+# Uso el método del archivo clean_text de preprocessing y ponemos flairs en minúsculas.
+prep_df['result'] = preprocessing_pipeline(prep_df['combined'], cleantext=args.clean_text, lemmatization=args.lemmatization, stemming=args.stemming,
+                                         stpwrds=args.stopwords)
 
-#   1. Uso cleantext para remover símbolos de puntuación, caracteres no ASCII, URL, emails, dígitos, minusculas, etc.
-prep_df['result'] = prep_df['combined'].apply(cln)
 prep_df['flair'] = prep_df['flair'].apply(str.lower)
 
-#   2. Uso NLTK para tokenización.
-prep_df['result'].apply(word_tokenize)
-#   3. Uso NLTK para lemmatización o stemmización. NO FUNCIONA NINGUNO
-if args.lemmatization:
-    lm = WordNetLemmatizer()
-    prep_df['result'] = prep_df['result'].apply(lm.lemmatize)
-
-elif args.stemming:
-    ps = PorterStemmer()
-    prep_df['result'] = prep_df['result'].apply(ps.stem)
+# Uso NLTK para tokenización.
+if args.tokenize:
+    prep_df['result'].apply(word_tokenize)
 
 # Visualización y guardado del resultado
 print(f"Result DataFrame: \n{prep_df}")
 
 # Finalmente guardo el dataframe preprocesado en un pickle.
-prep_df.to_pickle(f'{data_path}/{filename}.p')
+prep_df.to_pickle(f'{data_path}/{filename}.pkl')
 prep_df.to_excel(f'{data_path}/{filename}.xlsx', sheet_name="pagina1")
-print(f'saved prep_df in {data_path}/{filename}')
+print(f'saved preprocessed_texts_df in {data_path}/{filename}')

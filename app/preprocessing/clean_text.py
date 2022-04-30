@@ -42,7 +42,6 @@ def preprocessing_pipeline(texts, cleantext=True, lemmatization=True, stemming=T
                                                  ))
 
     remove_stopwords = np.vectorize(lambda text: ' '.join([word for word in text.split() if word not in stop_words]))
-
     word_lemmatize = np.vectorize(lambda text: ' '.join([wl.lemmatize(word) for word in text.split()]))
     word_stemming = np.vectorize(lambda text: ' '.join([ps.stem(word) for word in text.split()]))
     
@@ -63,14 +62,5 @@ def preprocessing_pipeline(texts, cleantext=True, lemmatization=True, stemming=T
         ps = PorterStemmer()
         texts = word_stemming(texts)
 
-    """
-    if args.lemmatization:
-        lm = WordNetLemmatizer()
-        prep_df['result'] = prep_df['result'].apply(lm.lemmatize)
-
-    elif args.stemming:
-        ps = PorterStemmer()
-        prep_df['result'] = prep_df['result'].apply(ps.stem)
-    """
 
     return texts.tolist()
