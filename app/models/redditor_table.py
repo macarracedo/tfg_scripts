@@ -1,7 +1,7 @@
-from db.db_connection import Base
+from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, Float, Boolean
 
-
+Base = declarative_base()
 class Redditor(Base):
     __tablename__ = 'redditors'
     STR_FIELD = Column(String)

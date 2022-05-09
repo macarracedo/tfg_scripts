@@ -1,10 +1,10 @@
-from db.db_connection import Base
+from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, ForeignKey
 
 from .redditor_table import Redditor
 from .submission_table import Submission
 
-
+Base = declarative_base()
 class Comment(Base):
     __tablename__ = 'comments'
     id = Column(Integer, primary_key=True)

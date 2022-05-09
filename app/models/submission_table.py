@@ -1,10 +1,10 @@
-from db.db_connection import Base
+from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey
 
 from .redditor_table import Redditor
 from .subreddit_table import Subreddit
 
-
+Base = declarative_base()
 class Submission(Base):
     __tablename__ = 'submissions'
     allow_live_comments = Column(Boolean)
