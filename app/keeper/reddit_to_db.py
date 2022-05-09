@@ -50,8 +50,12 @@ def saveSubmission(submission, redditor_nulo=False):
     print('type(Submission.id_submission): ' + str(type(Submission.id_submission)))
     #print('type(submission_praw): ' + str(type(submission_praw)))
 
-    query = select(Submission).where(Submission.id_submission == submission.id)
-    result = db.session.execute(query).fetchone()  # devuelve uno
+    result = db.session.query(Submission).filter(Submission.id_submission == submission.id).all()
+    # query = select(Submission).where(Submission.id_submission == submission.id)
+    # result = db.session.execute(query).fetchone()  # devuelve uno
+    for res in result:
+        print(res.id)
+    """
     if result is not None:  # conocemos al redditor
         # Sustituir por logger
         print("*********** NO insertado el \"Submission\" con id: " + submission.id + " *********** (Ya en la BD)")
@@ -69,7 +73,7 @@ def saveSubmission(submission, redditor_nulo=False):
                                    link_flair_text=submission.link_flair_text.trim())  # REVISAR CORRECTO FUNCIONAMIENTO DE TRIM, PARA EVITAR DOS VALORES DE "PATIENT "
         # db_submission = db.session.add(db_submission)
         db.session.add(db_submission)
-        print("*********** INSERTADO el \"Redditor\" con id: " + submission.id + " ***********")
+        print("*********** INSERTADO el \"Redditor\" con id: " + submission.id + " ***********")"""
 
     return None
 

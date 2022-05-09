@@ -14,85 +14,111 @@ from preprocessing import preprocessing_pipeline
 import numpy as np
 from sklearn.feature_selection import chi2
 
-path = Path.cwd()
+if __name__ == '__main__':
 
-parser = argparse.ArgumentParser(description='Takes submissions from database,'
-                                             '\n preprocess its body and'
-                                             '\n saves them to a pickle file.')
+    p = Path.cwd()
 
-parser.add_argument("-min_gram", "--min_gram", type=str, help="Minimum grammar in tfidf")
-parser.add_argument("-max_gram", "--max_gram", type=str, help="Maximum grammar in tfidf")
+    parser = argparse.ArgumentParser(description='Takes submissions from database,'
+                                                 '\n preprocess its body and'
+                                                 '\n saves them to a pickle file.')
 
-parser.add_argument('--output-filename', type=str, help='Name of the output file')
+    parser.add_argument("-min_gram", "--min_gram", type=str, help="Minimum grammar in tfidf", default=1)
+    parser.add_argument("-max_gram", "--max_gram", type=str, help="Maximum grammar in tfidf", default=1)
 
-args = parser.parse_args()
+    parser.add_argument('--input_filename', '-if', type=str, help='Name of the input file', default='prep_df')
+    parser.add_argument('--output_filename', '-of', type=str, help='Name of the output file', default='tfidf_df')
 
-# python app\tf-idf_vec.py -min_gram 1 -max_gram 3
-preprocessing_route = f"{str(path)}/data/preprocessed_texts_df.pkl"
-min_gram = int(args.min_gram)
-max_gram = int(args.max_gram)
+    args = parser.parse_args()
 
-prep_texts = pd.read_pickle(preprocessing_route)
-# flair_texts es un dataframe con las columnas [flair, combined, result]
+    # python app\tf-idf_vec.py -min_gram 1 -max_gram 3
+    dataset_path = f"{str(p)}/data/prep_datasets"
+    tfidf_matrix_path = f"{str(p)}/data/tfidf_matrices"
+    input_filename = args.input_filename
+    output_filename = args.output_filename
 
-flairs = [flair for flair in prep_texts['flair']]
-texts = [texts for texts in prep_texts['result']]
+    min_gram = int(args.min_gram)
+    max_gram = int(args.max_gram)
 
-tf_idf_vect = TfidfVectorizer(ngram_range=(min_gram, max_gram))
-X_train_tf_idf = tf_idf_vect.fit_transform(texts).toarray()
-terms = tf_idf_vect.get_feature_names()
+    prep_df = pd.read_csv(f'{dataset_path}/{input_filename}.csv')
+    print(f'Loaded Dataframe: \n{prep_df}')
+    # prep_df es un dataframe con las columnas [flair, result]
 
-# this is the matrix ! #
-for i, flair in enumerate(flairs):
-    # first flair and tfidf vector (all vectors have the same size)
+    print("Flair Count: \n" + str(prep_df['flair'].value_counts()))
+
+    flairs = [flair for flair in prep_df['flair']]
+    texts = [texts for texts in prep_df['result']]
+
+    tfidf_vect = TfidfVectorizer(input="content",
+                                 encoding="utf-8",
+                                 decode_error="strict",
+                                 strip_accents=None,
+                                 lowercase=True,
+                                 preprocessor=None,
+                                 tokenizer=None,
+                                 analyzer="word",
+                                 stop_words=None,
+                                 token_pattern=r"(?u)\b\w\w+\b",
+                                 ngram_range=(min_gram, max_gram),
+                                 max_df=1.0,
+                                 min_df=1,
+                                 max_features=None,
+                                 vocabulary=None,
+                                 binary=False,
+                                 dtype=np.float64,
+                                 norm="l2",
+                                 use_idf=True,
+                                 smooth_idf=True,
+                                 sublinear_tf=False)
+
+
+    X_tfidf = tfidf_vect.fit_transform(texts).toarray()
+    terms = tfidf_vect.get_feature_names()
+
+    tfidf_df = pd.DataFrame()
+    tfidf_df['flair'] = flairs
+    tfidf_df['tfidf_corpus'] = X_tfidf.tolist()
+
+    tfidf_df.to_csv(f'{tfidf_matrix_path}/{output_filename}.csv')
+
+    # separator
+
+    # Sustituyo flairs por su homólogo numérico
+    prep_df['id'] = prep_df['flair'].factorize()[0]
+    flair_category = prep_df[['flair', 'id']].drop_duplicates().sort_values('id')
+    print(f'Flair Category: \n{flair_category}')
+
+    # Creo un diccionario de etiquetas
+    category_labels = dict(flair_category.values)
+    print(f'Category Labels: \n{category_labels}')
+
+    # Extracting the features by fitting the Vectorizer on Combined Data
+    labels = prep_df['id']  # Series containing all the post labels but id
+    print(X_tfidf.shape)
+
+    # chisq2 statistical test
+    N = 5  # Number of examples to be listed
+    for f, i in sorted(category_labels.items()):
+        chi2_feat = chi2(X_tfidf, labels == i)
+        indices = np.argsort(chi2_feat[0])
+        feat_names = np.array(tfidf_vect.get_feature_names_out())[indices]
+        for i in range(min_gram,max_gram+1):
+            n_gram = [w for w in feat_names if len(w.split(' ')) == i]
+            print("\nFlair '{}':".format(f))
+            print("Most correlated n_grams({}):\n\t. {}".format(i,'\n\t. '.join(n_gram[-N:])))
+
+    # separator
+
     """
-    the flair is the result of the prediction (y_pred) and 
-    the vector corresponding to the tfidf will be the features 
-    that help predict (x_pred) when performing ML methods
+    tfidf_vectorizer = TfidfVectorizer()
+        tfidf_vectorizer_vectors = tfidf_vectorizer.fit_transform(combined_texts)
+    
+        # get the first vector out (for the first document)
+        first_vector_tfidfvectorizer = tfidf_vectorizer_vectors[0]
+    
+        # place tf-idf values in a pandas data frame
+        df = pd.DataFrame(first_vector_tfidfvectorizer.T.todense(),
+                          index=tfidf_vectorizer.get_feature_names(),
+                          columns=["tfidf"])
+        df.sort_values(by=["tfidf"], ascending=False)
+    
     """
-    print(f"'{flair}': {X_train_tf_idf[i]}")
-
-# separator
-prep_texts['id'] = prep_texts['flair'].factorize()[0]
-flair_category = prep_texts[['flair', 'id']].drop_duplicates().sort_values('id')
-print(flair_category)
-
-# Creo un diccionario de etiquetas
-category_labels = dict(flair_category.values)
-print(category_labels)
-
-# Extracting the features by fitting the Vectorizer on Combined Data
-feat = tf_idf_vect.fit_transform(texts).toarray()
-labels = prep_texts['id']  # Series containing all the post labels
-print(feat.shape)
-
-# chisq2 statistical test
-N = 5  # Number of examples to be listed
-for f, i in sorted(category_labels.items()):
-    chi2_feat = chi2(feat, labels == i)
-    indices = np.argsort(chi2_feat[0])
-    feat_names = np.array(tf_idf_vect.get_feature_names_out())[indices]
-    unigrams = [w for w in feat_names if len(w.split(' ')) == 1]
-    bigrams = [w for w in feat_names if len(w.split(' ')) == 2]
-    trigrams = [w for w in feat_names if len(w.split(' ')) == 3]
-    print("\nFlair '{}':".format(f))
-    print("Most correlated unigrams:\n\t. {}".format('\n\t. '.join(unigrams[-N:])))
-    print("Most correlated bigrams:\n\t. {}".format('\n\t. '.join(bigrams[-N:])))
-    print("Most correlated trigrams:\n\t. {}".format('\n\t. '.join(trigrams[-N:])))
-
-# separator
-
-"""
-tfidf_vectorizer = TfidfVectorizer()
-    tfidf_vectorizer_vectors = tfidf_vectorizer.fit_transform(combined_texts)
-
-    # get the first vector out (for the first document)
-    first_vector_tfidfvectorizer = tfidf_vectorizer_vectors[0]
-
-    # place tf-idf values in a pandas data frame
-    df = pd.DataFrame(first_vector_tfidfvectorizer.T.todense(),
-                      index=tfidf_vectorizer.get_feature_names(),
-                      columns=["tfidf"])
-    df.sort_values(by=["tfidf"], ascending=False)
-
-"""

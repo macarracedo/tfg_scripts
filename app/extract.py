@@ -6,7 +6,7 @@
 
 import datetime as dt
 import traceback
-
+import argparse
 import praw
 import json
 from psaw import PushshiftAPI
@@ -17,7 +17,31 @@ import db
 p = Path.cwd()
 print(str(p))
 
+filename = f"{str(p)}/data/prep_tf-idf.p"
 data_path = f"{str(p)}/data"
+
+parser = argparse.ArgumentParser(description='Takes submissions and redditors,'
+                                             '\n from reddit using praw and psaw,'
+                                             '\n saves them to DB')
+parser.add_argument('--fecha_i','-fecha_i', type=str, help='Fecha inicio. Formato: "2012.3.23"', default='2020.1.1')
+parser.add_argument('--fecha_f','-fecha_f', type=str, help='Fecha final. Formato: "2013.3.23"', default='2021.1.1')
+parser.add_argument('--subreddit','-S', type=str, help='Subreddit del que extraer publicaciones', default='2021.1.1')
+
+
+parser.add_argument('--clean_text', nargs='?', const=False, type=bool, default=True, help="Don't use clean_text library")
+parser.add_argument('--tokenize', nargs='?', const=True, type=bool, default=False, help='Tokenize result column')
+parser.add_argument('--stopwords', nargs='?', const=False, type=bool, default=True, help="Don't remove stopwords")
+
+
+group_args = parser.add_mutually_exclusive_group()
+group_args.add_argument('-l', '--lemmatization', nargs='?', const=True, type=bool, default=False,
+                        help='Reduce las palablas a su lema')
+group_args.add_argument('-s', '--stemming', nargs='?', const=True, type=bool, default=False,
+                        help='Reduce las palabras a su raiz')
+
+args = parser.parse_args()
+print(args)
+
 
 """
     reddit.validate_on_submit = True
@@ -42,9 +66,14 @@ reddit = praw.Reddit(client_id=creds['client_id'],
                      refresh_token=creds['refresh_token'])
 api = PushshiftAPI(reddit)
 
-tf_after = int(dt.datetime(2018, 1, 1).timestamp())
-tf_before = int(dt.datetime(2019, 1, 1).timestamp())
-subreddit = 'cancer'
+
+f_inicio = args.fecha_i.strip().split(".")
+f_final = args.fecha_f.strip().split(".")
+
+# anho, mes, dia
+tf_after = int(dt.datetime(int(f_inicio[0]), int(f_inicio[1]), int(f_inicio[2])).timestamp())
+tf_before = int(dt.datetime(int(f_final[0]), int(f_final[1]), int(f_final[2])).timestamp())
+subreddit = args.subreddit.strip()
 
 # use PSAW only to get id of submission in time interval
 gen = api.search_submissions(

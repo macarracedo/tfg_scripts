@@ -5,90 +5,95 @@
  (stopwords, numeros, puntuación, apóstrofes, minúsculas, lematización o stemización, etc.).
  Seguidamente guardará el dataframe preprocesado en un pickle.
 """
-
 # Parser cmd-line options and arguments
 import argparse
 # File manage
 from pathlib import Path
-
 # Data Manipulation
 import pandas as pd
 # Text preprocessing
-from cleantext import clean
-from nltk.stem import PorterStemmer, WordNetLemmatizer
+from preprocessing import preprocessing_pipeline
 # Natural Language Processing
 from nltk.tokenize import word_tokenize
 from sqlalchemy import select
-
 # DataBase access
 import db
 from models import Submission
-from preprocessing import preprocessing_pipeline
 
+if __name__ == '__main__':
 
-p = Path.cwd()
-print(str(p))
+    p = Path.cwd()
+    print(f'Current path: {str(p)}')
 
-filename = f"{str(p)}/data/prep_tf-idf.p"
-data_path = f"{str(p)}/data"
+    parser = argparse.ArgumentParser(description='Takes submissions from database,'
+                                                 '\n preprocess its body and'
+                                                 '\n saves them to a pickle file.')
+    parser.add_argument('--output_filename', '-of', type=str, help='Name of the output file', default='prep_df')
+    parser.add_argument('--clean_text', '-ct', nargs='?', const=False, type=bool, default=True, help="Don't use clean_text library")
+    parser.add_argument('--tokenize', '-t', nargs='?', const=True, type=bool, default=False, help='Tokenize result column')
+    parser.add_argument('--stopwords', '-s', nargs='?', const=False, type=bool, default=True, help="Don't remove stopwords")
+    parser.add_argument('--empty_flair', '-ef', nargs='?', const=False, type=bool, default=True, help="Don't remove flair '' ")
 
-parser = argparse.ArgumentParser(description='Takes submissions from database,'
-                                             '\n preprocess its body and'
-                                             '\n saves them to a pickle file.')
-parser.add_argument('--output-filename', type=str, help='Name of the output file', default='preprocessed_texts_df')
-parser.add_argument('--clean_text', nargs='?', const=False, type=bool, default=True, help="Don't use clean_text library")
-parser.add_argument('--tokenize', nargs='?', const=True, type=bool, default=False, help='Tokenize result column')
-parser.add_argument('--stopwords', nargs='?', const=False, type=bool, default=True, help="Don't remove stopwords")
+    group_args = parser.add_mutually_exclusive_group()
+    group_args.add_argument('-L', '--lemmatization', nargs='?', const=True, type=bool, default=False,
+                            help='Reduce las palablas a su lema')
+    group_args.add_argument('-S', '--stemming', nargs='?', const=True, type=bool, default=False,
+                            help='Reduce las palabras a su raiz')
+    args = parser.parse_args()
+    print(f'Current args: {args}')
 
+    output_path = f"{str(p)}/data/prep_datasets"
+    output_filename = args.output_filename
 
-group_args = parser.add_mutually_exclusive_group()
-group_args.add_argument('-l', '--lemmatization', nargs='?', const=True, type=bool, default=False,
-                        help='Reduce las palablas a su lema')
-group_args.add_argument('-s', '--stemming', nargs='?', const=True, type=bool, default=False,
-                        help='Reduce las palabras a su raiz')
+    # Recojo submissions de la base de datos a un dataframe
+    db.Base.metadata.create_all(db.engine)
+    query = select(Submission.link_flair_text, Submission.title, Submission.selftext).where(
+        Submission.link_flair_text is not None)
 
-args = parser.parse_args()
-print(args)
+    result = db.session.execute(query).fetchall()
 
-filename = "preprocessed_texts_df" if args.output_filename is None else args.output_filename
+    features = [
+        'flair',
+        'title',
+        'body'
+    ]
 
-# Recojo submissions de la base de datos a un dataframe
-db.Base.metadata.create_all(db.engine)
-query = select(Submission.link_flair_text, Submission.title, Submission.selftext).where(
-    Submission.link_flair_text is not None)
-result = db.session.execute(query).fetchall()
+    prep_df = pd.DataFrame(result, columns=features)
 
-features = [
-    'flair',
-    'title',
-    'body'
-]
-prep_df = pd.DataFrame(result, columns=features)
+    # Creo una columna combinando titulo y cuerpo, para aportar más información
+    prep_df['combined'] = prep_df['title']
 
-# Creo una columna combinando titulo y cuerpo, para aportar más información
-prep_df['combined'] = prep_df['title']
+    for i in range(len(prep_df)):
+        if type(prep_df.loc[i]['body']) != float:
+            prep_df['combined'][i] = prep_df['combined'][i] + ' ' + prep_df['body'][i]
 
-for i in range(len(prep_df)):
-    if type(prep_df.loc[i]['body']) != float:
-        prep_df['combined'][i] = prep_df['combined'][i] + ' ' + prep_df['body'][i]
-# Elimino columnas de Titulo y Cuerpo
-prep_df.drop('title', inplace=True, axis=1)
-prep_df.drop('body', inplace=True, axis=1)
+    # Elimino muestras con flair vacío
+    if args.empty_flair:
+        prep_df.drop(prep_df[prep_df['flair'].map(len) == 0].index, inplace=True, axis=0)
+        # El índice de las filas no se actualiza, pero al guardar en csv e importarlo sí lo hace en el nuevo df
 
-# Uso el método del archivo clean_text de preprocessing y ponemos flairs en minúsculas.
-prep_df['result'] = preprocessing_pipeline(prep_df['combined'], cleantext=args.clean_text, lemmatization=args.lemmatization, stemming=args.stemming,
-                                         stpwrds=args.stopwords)
+        # Aprovecho para eliminar aquí el flair rip, que sólo se repite una vez
+        # prep_df.drop(prep_df[prep_df['flair'] == 'rip'].index, inplace=True, axis=0)
 
-prep_df['flair'] = prep_df['flair'].apply(str.lower)
+    # Uso el método del archivo clean_text de preprocessing
+    prep_df['result'] = preprocessing_pipeline(prep_df['combined'], cleantext=args.clean_text, lemmatization=args.lemmatization, stemming=args.stemming,
+                                             stpwrds=args.stopwords)
+    # Pongo flairs en minúsculas.
+    prep_df['flair'] = prep_df['flair'].apply(str.lower)
 
-# Uso NLTK para tokenización.
-if args.tokenize:
-    prep_df['result'].apply(word_tokenize)
+    # Uso NLTK para tokenización.
+    if args.tokenize:
+        prep_df['result'] = prep_df['result'].apply(word_tokenize)
 
-# Visualización y guardado del resultado
-print(f"Result DataFrame: \n{prep_df}")
+    # Elimino columnas de Titulo y Cuerpo
+    prep_df.drop('title', inplace=True, axis=1)
+    prep_df.drop('body', inplace=True, axis=1)
+    prep_df.drop('combined', inplace=True, axis=1)
 
-# Finalmente guardo el dataframe preprocesado en un pickle.
-prep_df.to_pickle(f'{data_path}/{filename}.pkl')
-prep_df.to_excel(f'{data_path}/{filename}.xlsx', sheet_name="pagina1")
-print(f'saved preprocessed_texts_df in {data_path}/{filename}')
+    # Visualización y guardado del resultado
+    print(f"Result DataFrame: \n{prep_df}")
+
+    # Finalmente guardo el dataframe preprocesado
+    prep_df.to_csv(f'{output_path}/{output_filename}.csv', index=False)
+    prep_df.to_excel(f'{output_path}/{output_filename}.xlsx', sheet_name="pagina1", index=False)
+    print(f'saved preprocessed_texts_df in {output_path}/{output_filename}.csv')
