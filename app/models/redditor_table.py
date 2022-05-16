@@ -1,7 +1,7 @@
-from db.db_connection import Base
+from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, Float, Boolean
 
-
+Base = declarative_base()
 class Redditor(Base):
     __tablename__ = 'redditors'
     STR_FIELD = Column(String)
@@ -61,13 +61,14 @@ class Redditor(Base):
         self.has_verified_email = has_verified_email
         self.has_subscribed = has_subscribed
         self.hide_from_robots = hide_from_robots
+        self.icon_img_url = icon_img_url
 
     def __repr__(self):
         return f'id={self.id},id_redditor={self.id_redditor}, name={self.name}, ' \
                f'total_karma={self.total_karma}, link_karma={self.link_karma}, comment_karma={self.comment_karma},' \
                f'awardee_karma={self.awardee_karma}, awarder_karma={self.awarder_karma}, created={self.created}, ' \
-               f'created_utc={self.created_utc}, icon_img_url={self.icon_img_url}, verified={self.verified}, ' \
-               f'is_blocked={self.is_blocked}, is_suspended={self.is_suspended}, is_employee={self.is_employee},' \
+               f'created_utc={self.created_utc}, verified={self.verified}, ' \
+               f'is_blocked={self.is_blocked}, is_employee={self.is_employee},' \
                f'is_friend={self.is_friend}, is_mod={self.is_mod}, is_gold={self.is_gold}, accept_chats={self.accept_chats},' \
                f'accept_followers={self.accept_followers}, accept_pms={self.accept_pms}, has_verified_email={self.has_verified_email},' \
                f'has_subscribed={self.has_subscribed}, hide_from_robots={self.hide_from_robots}'

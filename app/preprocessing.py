@@ -1,5 +1,5 @@
 """
- text_prep.py
+ preprocessing.py
  Este script coge submissions de la BD, lleva a cabo un preprocesado del texto
  parametrizable. Esto es, se podrán modificar mediante argumentos los "filtros" que se le aplican al texto
  (stopwords, numeros, puntuación, apóstrofes, minúsculas, lematización o stemización, etc.).
@@ -17,10 +17,13 @@ from preprocessing import preprocessing_pipeline
 from nltk.tokenize import word_tokenize
 from sqlalchemy import select
 # DataBase access
-import db
+from db import database_connect
+from keeper import get_submissions
 from models import Submission
 
 if __name__ == '__main__':
+
+    session = database_connect()
 
     p = Path.cwd()
     print(f'Current path: {str(p)}')
@@ -46,12 +49,13 @@ if __name__ == '__main__':
     output_filename = args.output_filename
 
     # Recojo submissions de la base de datos a un dataframe
-    db.Base.metadata.create_all(db.engine)
+    """db.Base.metadata.create_all(db.engine)
     query = select(Submission.link_flair_text, Submission.title, Submission.selftext).where(
         Submission.link_flair_text is not None)
 
-    result = db.session.execute(query).fetchall()
+    result = db.session.execute(query).fetchall()"""
 
+    result = get_submissions(session)
     features = [
         'flair',
         'title',

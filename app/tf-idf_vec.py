@@ -23,7 +23,7 @@ if __name__ == '__main__':
                                                  '\n saves them to a pickle file.')
 
     parser.add_argument("-min_gram", "--min_gram", type=str, help="Minimum grammar in tfidf", default=1)
-    parser.add_argument("-max_gram", "--max_gram", type=str, help="Maximum grammar in tfidf", default=1)
+    parser.add_argument("-max_gram", "--max_gram", type=str, help="Maximum grammar in tfidf", default=2)
 
     parser.add_argument('--input_filename', '-if', type=str, help='Name of the input file', default='prep_df')
     parser.add_argument('--output_filename', '-of', type=str, help='Name of the output file', default='tfidf_df')
@@ -46,7 +46,7 @@ if __name__ == '__main__':
     print("Flair Count: \n" + str(prep_df['flair'].value_counts()))
 
     flairs = [flair for flair in prep_df['flair']]
-    texts = [texts for texts in prep_df['result']]
+    texts = [texts for texts in prep_df['result'].values.astype('U')]
 
     tfidf_vect = TfidfVectorizer(input="content",
                                  encoding="utf-8",
@@ -71,12 +71,12 @@ if __name__ == '__main__':
                                  sublinear_tf=False)
 
 
-    X_tfidf = tfidf_vect.fit_transform(texts).toarray()
+    X_tfidf = tfidf_vect.fit_transform(prep_df['result'].values.astype('U'))
     terms = tfidf_vect.get_feature_names()
 
     tfidf_df = pd.DataFrame()
     tfidf_df['flair'] = flairs
-    tfidf_df['tfidf_corpus'] = X_tfidf.tolist()
+    tfidf_df['tfidf_corpus'] = X_tfidf.getnnz()
 
     tfidf_df.to_csv(f'{tfidf_matrix_path}/{output_filename}.csv')
 

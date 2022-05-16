@@ -29,39 +29,57 @@ if __name__ == '__main__':
 
     parser.add_argument("-o", "--option", type=str, help="Select an option in the script")
 
-    parser.add_argument('--input_filename', '-if', type=str, help='Name of the input file', default='prep_df')
+    parser.add_argument('--input_filename', '-if', type=str, help='Name of the input file', default='tfidf_df')
 
     args = parser.parse_args()
 
     # python app\model_test.py -o [svm, nb, rf, lr]
     tfidf_matrix_path = f"{str(p)}/data/tfidf_matrices"
+    dataset_path = f"{str(p)}/data/prep_datasets"
+
     input_filename = args.input_filename
 
     # recoger la matriz tfidf
     tfidf_df = pd.read_csv(f'{tfidf_matrix_path}/{input_filename}.csv')
+    prep_df = pd.read_csv(f'{dataset_path}/prep_df.csv')
 
     print(f'Loaded Dataframe: \n{tfidf_df}')
-    # prep_df es un dataframe con las columnas [flair, result]
-
-    print("Flair Count: \n" + str(tfidf_df['flair'].value_counts()))
 
     tfidf_df['flair_id'] = tfidf_df['flair'].factorize()[0]
     flair_ids = tfidf_df[['flair', 'flair_id']].drop_duplicates().sort_values('flair_id')
-    print(f'Flair IDs: \n{flair_ids}')
+    flair_ids['value_counts'] = tfidf_df['flair'].value_counts(sort=False).tolist()
+    print(f'Flair IDs and Counts: \n{flair_ids}')
+
+    prep_df['flair_id'] = prep_df['flair'].factorize()[0]
+
 
     # Splitting 20% of the data into train test split
     X_train_tfidf, X_test_tfidf, y_train, y_test = train_test_split(tfidf_df['tfidf_corpus'], tfidf_df['flair_id'],
                                                         test_size=0.3,
                                                         random_state=2022)
 
+    """X_train_tfidf_2, X_test_tfidf_2, y_train_2, y_test_2 = train_test_split(prep_df['result'], prep_df['flair_id'],
+                                                                    test_size=0.3,
+                                                                    random_state=2022)"""
+
+
     # Creating an instance of the TFID Vectorizer
 
-    """tfidf_vect = TfidfVectorizer(ngram_range=(1,1))
+    tfidf_vect = TfidfVectorizer(ngram_range=(1,1))
     
     # tranforma el corpus en ngramas de nuevo, si guardo en pickle lo anterior no lo hago, sino que cargo ese pickle
    
-    X_train_tfidf = tfidf_vect.fit_transform(X_train)
-    X_test_tfidf = tfidf_vect.transform(X_test)"""
+    """X_train_tfidf_2 = tfidf_vect.fit_transform(X_train_tfidf_2)
+    X_test_tfidf_2 = tfidf_vect.transform(X_test_tfidf_2)"""
+
+    """print(f'X_train_tfidf.get_type(): {X_train_tfidf.get_type()}' \ # type= Series
+          f'X_train_tfidf: \n{X_train_tfidf}')"""
+
+    print(f'X_train_tfidf._to_numpy(): \n{X_train_tfidf.to_numpy()}')
+
+    """print(f'X_train_tfidf_2._get_dtype(): {X_train_tfidf_2._get_dtype()}' \
+          f'X_train_tfidf_2: \n{X_train_tfidf_2}')"""
+
 
     if args.option == 'svm':
         # python .\app\model_test.py -o svm
@@ -83,9 +101,6 @@ if __name__ == '__main__':
         # python .\app\model_test.py -o lr
 
         print(log_reg_classifier(X_train_tfidf, X_test_tfidf, y_train, y_test))
-
-    print(len(X_train_tfidf),len(y_train))
-    print(y_test)
 
 
     """

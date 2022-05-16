@@ -6,6 +6,8 @@ from nltk.stem import PorterStemmer, WordNetLemmatizer
 from cleantext import clean
 
 nltk.download('stopwords')
+nltk.download('wordnet')
+nltk.download('omw-1.4')
 
 def remove_url(tweet):
     return re.sub(r'http\S+', '', tweet)

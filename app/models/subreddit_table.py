@@ -1,7 +1,7 @@
-from db.db_connection import Base
+from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, Float, Boolean
 
-
+Base = declarative_base()
 class Subreddit(Base):
     __tablename__ = 'subreddits'
     MESSAGE_PREFIX = Column(String)
