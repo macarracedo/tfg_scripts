@@ -23,10 +23,12 @@ from models import Submission
 
 if __name__ == '__main__':
 
+    por_ciento = lambda x: x/100
+
     session = database_connect()
 
     p = Path.cwd()
-    print(f'Current path: {str(p)}')
+    print(f'\nCurrent path: {str(p)}')
 
     parser = argparse.ArgumentParser(description='Takes submissions from database,'
                                                  '\n preprocess its body and'
@@ -36,6 +38,7 @@ if __name__ == '__main__':
     parser.add_argument('--tokenize', '-t', nargs='?', const=True, type=bool, default=False, help='Tokenize result column')
     parser.add_argument('--stopwords', '-s', nargs='?', const=False, type=bool, default=True, help="Don't remove stopwords")
     parser.add_argument('--empty_flair', '-ef', nargs='?', const=False, type=bool, default=True, help="Don't remove flair '' ")
+    parser.add_argument('--occurrence', '-o', nargs='?', const=False, type=bool, default=True, help="Don't remove texts w/flair that has very low occurrences")
 
     group_args = parser.add_mutually_exclusive_group()
     group_args.add_argument('-L', '--lemmatization', nargs='?', const=True, type=bool, default=False,
@@ -43,7 +46,9 @@ if __name__ == '__main__':
     group_args.add_argument('-S', '--stemming', nargs='?', const=True, type=bool, default=False,
                             help='Reduce las palabras a su raiz')
     args = parser.parse_args()
-    print(f'Current args: {args}')
+    print(str(args))
+
+    MINIMUM_OCURRENCES = 1      # Percentage
 
     output_path = f"{str(p)}/data/prep_datasets"
     output_filename = args.output_filename
@@ -74,14 +79,23 @@ if __name__ == '__main__':
     # Elimino muestras con flair vacío
     if args.empty_flair:
         prep_df.drop(prep_df[prep_df['flair'].map(len) == 0].index, inplace=True, axis=0)
-        # El índice de las filas no se actualiza, pero al guardar en csv e importarlo sí lo hace en el nuevo df
+        # El índice de las filas no se actualiza tras eliminar filas,
+        # pero al guardar en csv e importarlo sí lo hace en el nuevo df
 
-        # Aprovecho para eliminar aquí el flair rip, que sólo se repite una vez
-        # prep_df.drop(prep_df[prep_df['flair'] == 'rip'].index, inplace=True, axis=0)
+    # Aprovecho para eliminar aquí flair con una presencia menor al 1%
+    removed_flairs = []
+    if args.occurrence:
+        min_rep = int(por_ciento(MINIMUM_OCURRENCES) * len(prep_df.index))
+        for index, value in prep_df['flair'].value_counts().items():
+            if value < min_rep:
+                removed_flairs.append(index)
+                prep_df.drop(prep_df[prep_df['flair'] == index].index, inplace=True, axis=0)
 
     # Uso el método del archivo clean_text de preprocessing
-    prep_df['result'] = preprocessing_pipeline(prep_df['combined'], cleantext=args.clean_text, lemmatization=args.lemmatization, stemming=args.stemming,
-                                             stpwrds=args.stopwords)
+    prep_df['result'] = preprocessing_pipeline(prep_df['combined'], cleantext=args.clean_text,
+                                               lemmatization=args.lemmatization, stemming=args.stemming,
+                                               stpwrds=args.stopwords)
+
     # Pongo flairs en minúsculas.
     prep_df['flair'] = prep_df['flair'].apply(str.lower)
 
@@ -89,15 +103,16 @@ if __name__ == '__main__':
     if args.tokenize:
         prep_df['result'] = prep_df['result'].apply(word_tokenize)
 
-    # Elimino columnas de Titulo y Cuerpo
+    # Elimino columnas innecesarias
     prep_df.drop('title', inplace=True, axis=1)
     prep_df.drop('body', inplace=True, axis=1)
     prep_df.drop('combined', inplace=True, axis=1)
 
-    # Visualización y guardado del resultado
-    print(f"Result DataFrame: \n{prep_df}")
+    # Visualización del resultado
+    print(f"\nRemoved Flairs {removed_flairs}\n"
+          f"\nFlair count: \n{str(prep_df['flair'].value_counts())}\n"
+          f"\nResulting Dataframe: \n{prep_df}")
 
     # Finalmente guardo el dataframe preprocesado
     prep_df.to_csv(f'{output_path}/{output_filename}.csv', index=False)
-    prep_df.to_excel(f'{output_path}/{output_filename}.xlsx', sheet_name="pagina1", index=False)
-    print(f'saved preprocessed_texts_df in {output_path}/{output_filename}.csv')
+    print(f'\nSaved resulting dataframe in {output_path}/{output_filename}.csv')
