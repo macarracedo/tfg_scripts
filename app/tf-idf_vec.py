@@ -17,6 +17,7 @@ from sklearn.feature_selection import chi2
 if __name__ == '__main__':
 
     p = Path.cwd()
+    print(f'\nCurrent path: {str(p)}')
 
     parser = argparse.ArgumentParser(description='Takes submissions from database,'
                                                  '\n preprocess its body and'
@@ -29,6 +30,7 @@ if __name__ == '__main__':
     parser.add_argument('--output_filename', '-of', type=str, help='Name of the output file', default='tfidf_df')
 
     args = parser.parse_args()
+    print(str(args))
 
     # python app\tf-idf_vec.py -min_gram 1 -max_gram 3
     dataset_path = f"{str(p)}/data/prep_datasets"
@@ -45,8 +47,10 @@ if __name__ == '__main__':
 
     print("Flair Count: \n" + str(prep_df['flair'].value_counts()))
 
-    flairs = [flair for flair in prep_df['flair']]
-    texts = [texts for texts in prep_df['result'].values.astype('U')]
+    flairs = prep_df['flair']
+
+    # texts = [texts for texts in prep_df['result'].values.astype('U')]
+    texts = prep_df['result'].values.astype('U')
 
     tfidf_vect = TfidfVectorizer(input="content",
                                  encoding="utf-8",
@@ -71,17 +75,32 @@ if __name__ == '__main__':
                                  sublinear_tf=False)
 
 
-    X_tfidf = tfidf_vect.fit_transform(prep_df['result'].values.astype('U'))
-    terms = tfidf_vect.get_feature_names()
+    X_tfidf = tfidf_vect.fit_transform(texts).toarray()
 
     tfidf_df = pd.DataFrame()
     tfidf_df['flair'] = flairs
-    tfidf_df['tfidf_corpus'] = X_tfidf.getnnz()
+
+    # tfidf_df['tfidf_corpus'] = X_tfidf.toarray()                      # too big to handle
+    # tfidf_df = tfidf_df.assign( tfidf_corpus = X_tfidf.toarray())     # too big to handle
+    tfidf_df['tfidf_corpus'] = X_tfidf
+
+    """
+    Awful efficiency. Do not use. I'm just leaving it here so I don't run into this solution again.
+    for i, x in enumerate(flairs):
+        # print(f'i:{i} | x:{x} \t| X_tfidf.toarray()[i]: {X_tfidf.toarray()[i]}')
+        tfidf_df.insert(i,                              # index
+                        'tfidf_corpus',                 # column name
+                        X_tfidf.toarray()[i],           # data
+                        True)                           # allow duplicates
+    """
+
+    print(f"\nResulting Dataframe: \n{tfidf_df}")
+    print(f"\nResulting Dataframe with flairs: \n{tfidf_df}")
 
     tfidf_df.to_csv(f'{tfidf_matrix_path}/{output_filename}.csv')
 
     # separator
-
+    """
     # Sustituyo flairs por su homólogo numérico
     prep_df['id'] = prep_df['flair'].factorize()[0]
     flair_category = prep_df[['flair', 'id']].drop_duplicates().sort_values('id')
@@ -104,7 +123,7 @@ if __name__ == '__main__':
         for i in range(min_gram,max_gram+1):
             n_gram = [w for w in feat_names if len(w.split(' ')) == i]
             print("\nFlair '{}':".format(f))
-            print("Most correlated n_grams({}):\n\t. {}".format(i,'\n\t. '.join(n_gram[-N:])))
+            print("Most correlated n_grams({}):\n\t. {}".format(i,'\n\t. '.join(n_gram[-N:])))"""
 
     # separator
 
