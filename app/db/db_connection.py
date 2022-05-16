@@ -8,10 +8,6 @@ def database_connect():
         "mysql+pymysql://redditUser:redditPass@localhost:3306/tfg_test?charset=utf8mb4"
     )
 
-    """engine = create_engine(
-        'mysql+mysqlconnector://root:root@localhost:3306/tfg_test'
-    )"""
-
     Session = sessionmaker(bind=engine)
 
     return Session()
