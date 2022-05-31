@@ -17,7 +17,7 @@ from preprocessing import preprocessing_pipeline
 from nltk.tokenize import word_tokenize
 from sqlalchemy import select
 # DataBase access
-from db import database_connect
+from db_connection import database_connect
 from keeper import get_submissions
 from models import Submission
 
@@ -54,11 +54,11 @@ if __name__ == '__main__':
     output_filename = args.output_filename
 
     # Recojo submissions de la base de datos a un dataframe
-    """db.Base.metadata.create_all(db.engine)
+    """db_connection.Base.metadata.create_all(db_connection.engine)
     query = select(Submission.link_flair_text, Submission.title, Submission.selftext).where(
         Submission.link_flair_text is not None)
 
-    result = db.session.execute(query).fetchall()"""
+    result = db_connection.session.execute(query).fetchall()"""
 
     result = get_submissions(session)
     features = [

@@ -5,6 +5,7 @@
  (stopwords, numeros, puntuación, apóstrofes, minúsculas, lematización o stemización, etc.).
  Seguidamente guardará el dataframe preprocesado en un pickle.
 """
+import gc       # garbage-collector
 import argparse
 import pandas as pd
 import pickle
@@ -47,10 +48,11 @@ if __name__ == '__main__':
 
     print("Flair Count: \n" + str(prep_df['flair'].value_counts()))
 
-    flairs = prep_df['flair']
-
     # texts = [texts for texts in prep_df['result'].values.astype('U')]
     texts = prep_df['result'].values.astype('U')
+    flairs = prep_df['flair']
+
+    del prep_df
 
     tfidf_vect = TfidfVectorizer(input="content",
                                  encoding="utf-8",
@@ -77,15 +79,19 @@ if __name__ == '__main__':
 
     X_tfidf = tfidf_vect.fit_transform(texts).toarray()
 
+    del texts
+
+    gc.collect()
+
     tfidf_df = pd.DataFrame()
     tfidf_df['flair'] = flairs
 
     # tfidf_df['tfidf_corpus'] = X_tfidf.toarray()                      # too big to handle
     # tfidf_df = tfidf_df.assign( tfidf_corpus = X_tfidf.toarray())     # too big to handle
-    tfidf_df['tfidf_corpus'] = X_tfidf
+    tfidf_df['tfidf_corpus'] = X_tfidf.tolist()
 
     """
-    Awful efficiency. Do not use. I'm just leaving it here so I don't run into this solution again.
+    Awful efficiency. Do not use. I'm leaving it here so I don't run into this solution again.
     for i, x in enumerate(flairs):
         # print(f'i:{i} | x:{x} \t| X_tfidf.toarray()[i]: {X_tfidf.toarray()[i]}')
         tfidf_df.insert(i,                              # index

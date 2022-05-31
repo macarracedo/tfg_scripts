@@ -59,7 +59,7 @@ def saveSubmission(session, submission, redditor_nulo=False):
                                    fk_id_author=fk_id_author, id_author=id_author, ups=submission.ups,
                                    downs=submission.downs, upvote_ratio=submission.upvote_ratio, url=submission.url,
                                    link_flair_text=flair)  # REVISAR CORRECTO FUNCIONAMIENTO DE TRIM, PARA EVITAR DOS VALORES DE "PATIENT "
-        # db_submission = db.session.add(db_submission)
+        # db_submission = db_connection.session.add(db_submission)
         session.add(db_submission)
         print("\t*** INSERTADO el \"Submission\" con id: '" + str(submission.id) + "'   \t***")
 

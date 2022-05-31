@@ -12,7 +12,7 @@ import json
 from psaw import PushshiftAPI
 from pathlib import Path
 from keeper import *
-from db import database_connect
+from db_connection import database_connect
 from reddit_connection import get_reddit_instance
 
 # funciones que luego moveré a un archivo
