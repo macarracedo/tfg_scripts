@@ -1,9 +1,7 @@
 """
  tf-idf_vec.py
- Este script coge submissions de la BD, lleva a cabo un preprocesado del texto
- parametrizable. Esto es, se podrán modificar mediante argumentos los "filtros" que se le aplican al texto
- (stopwords, numeros, puntuación, apóstrofes, minúsculas, lematización o stemización, etc.).
- Seguidamente guardará el dataframe preprocesado en un pickle.
+ Este script coge los textos preprocesados de un .csv y hace uso de un vector tf-idf
+ para contruir una matriz que se guardará en otro csv. Esta matriz se empleará en el script de model.
 """
 import gc       # garbage-collector
 import argparse
