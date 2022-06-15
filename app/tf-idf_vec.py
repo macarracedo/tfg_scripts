@@ -65,7 +65,7 @@ if __name__ == '__main__':
                                  ngram_range=(min_gram, max_gram),
                                  max_df=1.0,
                                  min_df=1,
-                                 max_features=None,
+                                 max_features=1024,
                                  vocabulary=None,
                                  binary=False,
                                  dtype=np.float64,
@@ -74,8 +74,9 @@ if __name__ == '__main__':
                                  smooth_idf=True,
                                  sublinear_tf=False)
 
-
+    print("fit_transform...")
     X_tfidf = tfidf_vect.fit_transform(texts).toarray()
+
 
     del texts
 
@@ -83,28 +84,16 @@ if __name__ == '__main__':
 
     tfidf_df = pd.DataFrame()
     tfidf_df['flair'] = flairs
-
-    # tfidf_df['tfidf_corpus'] = X_tfidf.toarray()                      # too big to handle
-    # tfidf_df = tfidf_df.assign( tfidf_corpus = X_tfidf.toarray())     # too big to handle
     tfidf_df['tfidf_corpus'] = X_tfidf.tolist()
 
-    """
-    Awful efficiency. Do not use. I'm leaving it here so I don't run into this solution again.
-    for i, x in enumerate(flairs):
-        # print(f'i:{i} | x:{x} \t| X_tfidf.toarray()[i]: {X_tfidf.toarray()[i]}')
-        tfidf_df.insert(i,                              # index
-                        'tfidf_corpus',                 # column name
-                        X_tfidf.toarray()[i],           # data
-                        True)                           # allow duplicates
-    """
-
     print(f"\nResulting Dataframe: \n{tfidf_df}")
-    print(f"\nResulting Dataframe with flairs: \n{tfidf_df}")
+    tfidf_df.to_csv(f'{tfidf_matrix_path}/{output_filename}.csv', index=False)
 
-    tfidf_df.to_csv(f'{tfidf_matrix_path}/{output_filename}.csv')
+    print(f'\nSaved resulting dataframe in {tfidf_matrix_path}/{output_filename}.csv')
 
     # separator
-    """
+
+
     # Sustituyo flairs por su homólogo numérico
     prep_df['id'] = prep_df['flair'].factorize()[0]
     flair_category = prep_df[['flair', 'id']].drop_duplicates().sort_values('id')
@@ -127,7 +116,7 @@ if __name__ == '__main__':
         for i in range(min_gram,max_gram+1):
             n_gram = [w for w in feat_names if len(w.split(' ')) == i]
             print("\nFlair '{}':".format(f))
-            print("Most correlated n_grams({}):\n\t. {}".format(i,'\n\t. '.join(n_gram[-N:])))"""
+            print("Most correlated n_grams({}):\n\t. {}".format(i,'\n\t. '.join(n_gram[-N:])))
 
     # separator
 

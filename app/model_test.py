@@ -6,8 +6,7 @@
 # DataBase access
 # Natural Language Processing
 import argparse
-
-import nltk
+import pickle
 # Data Manipulation
 import numpy as np
 import pandas as pd
@@ -17,10 +16,14 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 # Performance Evaluation and Support
 from sklearn.model_selection import train_test_split
 from sklearn.svm import SVC
+from sklearn.ensemble import RandomForestClassifier
 import argparse
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, confusion_matrix
 from pathlib import Path
-from ml_classifiers import nb_classifier, svc_classifier, log_reg_classifier, random_forest_classifier
+from ml_classifiers import getClassifier, kernels, getGridSearchCV
+# next should be removed when all models finished
+from ml_classifiers import *
+
 
 if __name__ == '__main__':
     p = Path.cwd()
@@ -36,72 +39,121 @@ if __name__ == '__main__':
     # python app\model_test.py -o [svm, nb, rf, lr]
     tfidf_matrix_path = f"{str(p)}/data/tfidf_matrices"
     dataset_path = f"{str(p)}/data/prep_datasets"
+    models_path = f"{str(p)}/data/models"
 
     input_filename = args.input_filename
 
     # recoger la matriz tfidf
     tfidf_df = pd.read_csv(f'{tfidf_matrix_path}/{input_filename}.csv')
-    prep_df = pd.read_csv(f'{dataset_path}/prep_df.csv')
+
+    # recoger la matriz tfidf
+    # prep_df = pd.read_csv(f'{dataset_path}/prep_df.csv')
 
     print(f'Loaded Dataframe: \n{tfidf_df}')
 
+    # Convierto los flairs a un identificador numérico en una nueva columna
     tfidf_df['flair_id'] = tfidf_df['flair'].factorize()[0]
+
+    # Las 3 siguientes lineas muestran el identificador numérico asociado al flair y la cantidad de cada flair que tenemos en el dataset
     flair_ids = tfidf_df[['flair', 'flair_id']].drop_duplicates().sort_values('flair_id')
     flair_ids['value_counts'] = tfidf_df['flair'].value_counts(sort=False).tolist()
     print(f'Flair IDs and Counts: \n{flair_ids}')
 
-    prep_df['flair_id'] = prep_df['flair'].factorize()[0]
+
+    tfidf_corpus = []
+    for x in np.array(tfidf_df['tfidf_corpus']):
+        documento = []
+        palabra = []
+        doc_temp = x[1:-1].split(',')
+        for y in doc_temp:
+            palabra = float(y)
+            documento.append(palabra)
+        tfidf_corpus.append(np.array(documento))
 
 
     # Splitting 20% of the data into train test split
-    X_train_tfidf, X_test_tfidf, y_train, y_test = train_test_split(tfidf_df['tfidf_corpus'], tfidf_df['flair_id'],
+    X_train_tfidf, X_test_tfidf, y_train, y_test = train_test_split(tfidf_corpus, tfidf_df['flair_id'],
                                                         test_size=0.3,
                                                         random_state=2022)
-
-    """X_train_tfidf_2, X_test_tfidf_2, y_train_2, y_test_2 = train_test_split(prep_df['result'], prep_df['flair_id'],
-                                                                    test_size=0.3,
-                                                                    random_state=2022)"""
-
-
-    # Creating an instance of the TFID Vectorizer
-
-    tfidf_vect = TfidfVectorizer(ngram_range=(1,1))
-    
-    # tranforma el corpus en ngramas de nuevo, si guardo en pickle lo anterior no lo hago, sino que cargo ese pickle
-   
-    """X_train_tfidf_2 = tfidf_vect.fit_transform(X_train_tfidf_2)
-    X_test_tfidf_2 = tfidf_vect.transform(X_test_tfidf_2)"""
-
-    """print(f'X_train_tfidf.get_type(): {X_train_tfidf.get_type()}' \ # type= Series
-          f'X_train_tfidf: \n{X_train_tfidf}')"""
-
-    print(f'X_train_tfidf._to_numpy(): \n{X_train_tfidf.to_numpy()}')
-
-    """print(f'X_train_tfidf_2._get_dtype(): {X_train_tfidf_2._get_dtype()}' \
-          f'X_train_tfidf_2: \n{X_train_tfidf_2}')"""
-
+    model = None
 
     if args.option == 'svm':
         # python .\app\model_test.py -o svm
 
-        model = SVC(C=10, gamma=0.01, kernel="rbf").fit(X_train_tfidf, y_train)
+        for i in range(4):
+            svclassifier = getClassifier(i)
+            svclassifier.fit(X_train_tfidf, y_train)  # Make prediction
+            y_pred = svclassifier.predict(X_test_tfidf)  # Evaluate our model
+            print("Evaluation:", kernels[i], "kernel")
+            print(classification_report(y_test, y_pred))
+
+        grid = getGridSearchCV()
+        grid.fit(X_train_tfidf, y_train)
+
+        # print best parameter after tuning
+        print(f"Best params: {grid.best_params_}")
+        # print how our model looks after hyper-parameter tuning
+        print(f"Best estimator: {grid.best_estimator_}")
+
+        grid_predictions = grid.predict(X_test_tfidf)
+        print(f"Confusion matrix:\n{confusion_matrix(y_test, grid_predictions)}")
+        print(f"Classification report:\n{classification_report(y_test, grid_predictions)}")
+
+    elif args.option == 'rf':
+        # python .\app\model_test.py -o rf
+
+        """model = RandomForestClassifier().fit(X_train_tfidf, y_train)
         # guardar model en archivo
+        with open(f'{models_path}/rf.pickle', 'wb') as handle:
+            pickle.dump(model, handle)
+            print(f'\nSaved current model in {models_path}/rf.pickle')
+
         y_predictions = model.predict(X_test_tfidf)
-        print(classification_report(y_test, y_predictions))
+        print(classification_report(y_test, y_predictions))"""
+
+        rf_random = getRandomizedSearchCV()
+        rf_random.fit(X_train_tfidf, y_train)
+
+        # print best parameter after tuning
+        print(f"Best params: {rf_random.best_params_}")
+        # print how our model looks after hyper-parameter tuning
+        print(f"Best estimator: {rf_random.best_estimator_}")
+
+        base_model = RandomForestRegressor(n_estimators=10, random_state=2022)
+        base_model.fit(X_train_tfidf, y_train)
+        base_accuracy = evaluateRFmodel(base_model, X_test_tfidf, y_test)
+
+        best_random = rf_random.best_estimator_
+        random_accuracy = evaluateRFmodel(best_random, X_test_tfidf, y_test)
+
+        print('Improvement of {:0.2f}%.'.format(100 * (random_accuracy - base_accuracy) / base_accuracy))
+
+        # print(random_forest_classifier(X_train_tfidf, X_test_tfidf, y_train, y_test))
 
     elif args.option == 'nb':
         # python .\app\model_test.py -o nb
 
         print(nb_classifier(X_train_tfidf, X_test_tfidf, y_train, y_test))
-    elif args.option == 'rf':
-        # python .\app\model_test.py -o rf
 
-        print(random_forest_classifier(X_train_tfidf, X_test_tfidf, y_train, y_test))
     elif args.option == 'lr':
         # python .\app\model_test.py -o lr
 
         print(log_reg_classifier(X_train_tfidf, X_test_tfidf, y_train, y_test))
 
+    elif args.option == 'lda':
+        # python .\app\model_test.py -o lda
+
+        model = SVC().fit(X_train_tfidf, y_train)
+
+        y_predictions = model.predict(X_test_tfidf)
+        print(classification_report(y_test, y_predictions))
+
+        fine_tuning(X_train_tfidf, y_train)
+
+    # guardar model en archivo
+    with open(f'{models_path}/svm.pickle', 'wb') as handle:
+        pickle.dump(model, handle)
+        print(f'\nSaved current model in {models_path}/svm.pickle')
 
     """
     # Naive Bayes Classifier
